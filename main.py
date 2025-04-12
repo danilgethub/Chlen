@@ -4,7 +4,6 @@ import discord
 import keep_alive
 import re
 from discord.ext import commands
-from datetime import timedelta
 
 # Настройка интентов (разрешений) для бота
 intents = discord.Intents.default()
@@ -19,14 +18,36 @@ bot = commands.Bot(command_prefix='!', intents=intents)
 # Хранилище созданных каналов
 created_channels = {}
 
-# Настройки модерации
-auto_role_id = None  # ID роли для автовыдачи
-allowed_link_roles = set()  # Роли с разрешением на ссылки
-mod_enabled = True  # Включена ли модерация ссылок
+# ID канала, в котором нужно удалять ссылки
+LINKS_FILTER_CHANNEL_ID = '1234567890123456789'  # Замените на ID вашего канала
 
-# Шаблон для поиска ссылок
-link_pattern = re.compile(r'(https?://\S+|discord\.gg/\S+|discordapp\.com/invite/\S+)')
+# Регулярные выражения для обнаружения ссылок
+URL_PATTERN = re.compile(r'https?://\S+|www\.\S+')
+DISCORD_INVITE_PATTERN = re.compile(r'discord(?:\.gg|app\.com/invite|\.com/invite)/\S+')
 
+@bot.event
+async def on_message(message):
+    # Проверяем, что сообщение не от бота и в нужном канале
+    if message.author.bot or str(message.channel.id) != LINKS_FILTER_CHANNEL_ID:
+        # Продолжаем обработку команд
+        await bot.process_commands(message)
+        return
+        
+    # Проверяем наличие ссылок
+    has_url = URL_PATTERN.search(message.content)
+    has_discord_invite = DISCORD_INVITE_PATTERN.search(message.content)
+    
+    if has_url or has_discord_invite:
+        # Удаляем сообщение
+        await message.delete()
+        # Отправляем уведомление пользователю
+        await message.channel.send(
+            f"{message.author.mention}, размещение ссылок в этом канале запрещено!",
+            delete_after=5  # Удаляем уведомление через 5 секунд
+        )
+    else:
+        # Если в сообщении нет ссылок, продолжаем обработку команд
+        await bot.process_commands(message)
 
 @bot.event
 async def on_ready():
@@ -39,60 +60,6 @@ async def on_ready():
         print(f'Синхронизировано {len(synced)} команд')
     except Exception as e:
         print(f'Ошибка синхронизации команд: {e}')
-
-
-@bot.event
-async def on_member_join(member):
-    """Событие срабатывает, когда новый участник присоединяется к серверу"""
-    if auto_role_id:
-        try:
-            # Получаем объект роли по ID
-            role = member.guild.get_role(auto_role_id)
-            if role:
-                await member.add_roles(role)
-                print(f"Выдана роль {role.name} участнику {member.display_name}")
-        except Exception as e:
-            print(f"Ошибка при выдаче роли: {e}")
-
-
-@bot.event
-async def on_message(message):
-    """Событие срабатывает при получении нового сообщения"""
-    # Игнорируем сообщения от ботов
-    if message.author.bot:
-        return
-
-    # Проверяем наличие ссылок в сообщении
-    if mod_enabled and link_pattern.search(message.content):
-        # Проверяем, есть ли у пользователя разрешенная роль
-        has_allowed_role = False
-        for role in message.author.roles:
-            if role.id in allowed_link_roles:
-                has_allowed_role = True
-                break
-        
-        # Если нет разрешенной роли - модерируем
-        if not has_allowed_role:
-            # Удаляем сообщение
-            await message.delete()
-            
-            # Выдаем тайм-аут на 10 минут
-            try:
-                await message.author.timeout(timedelta(minutes=10), reason="Отправка запрещенных ссылок")
-                # Отправляем уведомление
-                await message.channel.send(
-                    f"{message.author.mention}, отправка ссылок запрещена. Вы получили тайм-аут на 10 минут.",
-                    delete_after=10
-                )
-            except discord.errors.Forbidden:
-                # Если у бота не хватает прав для тайм-аута
-                await message.channel.send(
-                    f"{message.author.mention}, отправка ссылок запрещена.",
-                    delete_after=10
-                )
-    
-    # Обрабатываем команды бота
-    await bot.process_commands(message)
 
 
 @bot.event
@@ -146,87 +113,6 @@ async def on_voice_state_update(member, before, after):
         if len(channel.members) == 0:
             await channel.delete()
             del created_channels[before.channel.id]
-
-
-# Команды для настройки модерации
-@bot.command()
-@commands.has_permissions(administrator=True)
-async def сет_роль(ctx, role_id: int):
-    """Устанавливает роль для автовыдачи новым участникам"""
-    global auto_role_id
-    
-    # Проверяем существование роли
-    role = ctx.guild.get_role(role_id)
-    if not role:
-        return await ctx.send("Роль с указанным ID не найдена!")
-    
-    auto_role_id = role_id
-    await ctx.send(f"Установлена роль для автовыдачи: {role.name}")
-
-
-@bot.command()
-@commands.has_permissions(administrator=True)
-async def разрешить_ссылки(ctx, role_id: int):
-    """Добавляет роль в список разрешенных для отправки ссылок"""
-    global allowed_link_roles
-    
-    # Проверяем существование роли
-    role = ctx.guild.get_role(role_id)
-    if not role:
-        return await ctx.send("Роль с указанным ID не найдена!")
-    
-    allowed_link_roles.add(role_id)
-    await ctx.send(f"Роль {role.name} добавлена в список разрешенных для отправки ссылок")
-
-
-@bot.command()
-@commands.has_permissions(administrator=True)
-async def запретить_ссылки(ctx, role_id: int):
-    """Удаляет роль из списка разрешенных для отправки ссылок"""
-    global allowed_link_roles
-    
-    # Проверяем существование роли
-    role = ctx.guild.get_role(role_id)
-    if not role:
-        return await ctx.send("Роль с указанным ID не найдена!")
-    
-    if role_id in allowed_link_roles:
-        allowed_link_roles.remove(role_id)
-        await ctx.send(f"Роль {role.name} удалена из списка разрешенных для отправки ссылок")
-    else:
-        await ctx.send(f"Роль {role.name} не была в списке разрешенных")
-
-
-@bot.command()
-@commands.has_permissions(administrator=True)
-async def список_разрешенных(ctx):
-    """Показывает список ролей, разрешенных для отправки ссылок"""
-    if not allowed_link_roles:
-        return await ctx.send("Список разрешенных ролей пуст")
-    
-    roles_text = ""
-    for role_id in allowed_link_roles:
-        role = ctx.guild.get_role(role_id)
-        role_name = role.name if role else f"(ID: {role_id})"
-        roles_text += f"• {role_name}\n"
-    
-    await ctx.send(f"Роли с разрешением на отправку ссылок:\n{roles_text}")
-
-
-@bot.command()
-@commands.has_permissions(administrator=True)
-async def модерация(ctx, state: str):
-    """Включает или выключает модерацию ссылок (вкл/выкл)"""
-    global mod_enabled
-    
-    if state.lower() in ['вкл', 'включить', 'on', 'true', 'yes', '1']:
-        mod_enabled = True
-        await ctx.send("Модерация ссылок включена")
-    elif state.lower() in ['выкл', 'выключить', 'off', 'false', 'no', '0']:
-        mod_enabled = False
-        await ctx.send("Модерация ссылок выключена")
-    else:
-        await ctx.send("Неверный аргумент. Используйте 'вкл' или 'выкл'")
 
 
 # Классы View для интерактивных компонентов
@@ -589,5 +475,21 @@ class LimitModal(discord.ui.Modal, title='Установить лимит уча
 
 
 # Запускаем веб-сервер для поддержания работы бота
+@bot.event
+async def on_ready():
+    """Событие срабатывает при успешном запуске бота"""
+    print(f'Бот {bot.user} успешно запущен!')
+
+    # Синхронизируем команды с Discord
+    try:
+        synced = await bot.tree.sync()
+        print(f'Синхронизировано {len(synced)} команд')
+    except Exception as e:
+        print(f'Ошибка синхронизации команд: {e}')
+
+
 keep_alive.keep_alive()
 bot.run(os.environ["Token"])
+
+# Закомментировано, так как, похоже, это дублирование запуска с неверным токеном
+# bot.run(os.getenv('1359162482215616742'))
