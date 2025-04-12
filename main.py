@@ -19,7 +19,7 @@ bot = commands.Bot(command_prefix='!', intents=intents)
 created_channels = {}
 
 # ID канала, в котором нужно удалять ссылки
-LINKS_FILTER_CHANNEL_ID = '1234567890123456789'  # Замените на ID вашего канала
+LINKS_FILTER_CHANNEL_ID = '1359084925218979900'  # Замените на ID вашего канала
 
 # Регулярные выражения для обнаружения ссылок
 URL_PATTERN = re.compile(r'https?://\S+|www\.\S+')
