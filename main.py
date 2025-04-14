@@ -1,4 +1,3 @@
-
 import os
 import discord
 import keep_alive
@@ -447,30 +446,36 @@ class LimitModal(discord.ui.Modal, title='Установить лимит уча
                                  required=True)
 
     async def on_submit(self, interaction: discord.Interaction):
-        if self.channel_id not in created_channels:
-            return await interaction.response.send_message('Канал не найден!',
-                                                           ephemeral=True)
-
-        channel_data = created_channels[self.channel_id]
-
-        if interaction.user.id != channel_data['owner']:
-            return await interaction.response.send_message(
-                'Только владелец канала может управлять им!', ephemeral=True)
-
-        channel = channel_data['channel']
-
         try:
-            limit = int(self.limit.value)
-            if limit < 1 or limit > 99:
-                return await interaction.response.send_message(
-                    'Пожалуйста, введите число от 1 до 99!', ephemeral=True)
+            if self.channel_id not in created_channels:
+                return await interaction.response.send_message('Канал не найден!',
+                                                               ephemeral=True)
 
-            await channel.edit(user_limit=limit)
+            channel_data = created_channels[self.channel_id]
+
+            if interaction.user.id != channel_data['owner']:
+                return await interaction.response.send_message(
+                    'Только владелец канала может управлять им!', ephemeral=True)
+
+            channel = channel_data['channel']
+
+            try:
+                limit = int(self.limit.value)
+                if limit < 1 or limit > 99:
+                    return await interaction.response.send_message(
+                        'Пожалуйста, введите число от 1 до 99!', ephemeral=True)
+
+                await channel.edit(user_limit=limit)
+                await interaction.response.send_message(
+                    f'Лимит участников установлен: {limit}', ephemeral=True)
+            except ValueError:
+                await interaction.response.send_message(
+                    'Пожалуйста, введите число от 1 до 99!', ephemeral=True)
+        except Exception as e:
+            print(f"Ошибка при установке лимита: {e}")
             await interaction.response.send_message(
-                f'Лимит участников установлен: {limit}', ephemeral=True)
-        except ValueError:
-            await interaction.response.send_message(
-                'Пожалуйста, введите число от 1 до 99!', ephemeral=True)
+                'Произошла ошибка при установке лимита. Попробуйте позже.',
+                ephemeral=True)
 
 
 # Запускаем веб-сервер для поддержания работы бота
