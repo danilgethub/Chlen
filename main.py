@@ -195,21 +195,33 @@ class LimitButton(discord.ui.Button):
                          custom_id='limit')
 
     async def callback(self, interaction: discord.Interaction):
-        channel_id = self.view.channel_id
+        try:
+            channel_id = self.view.channel_id
 
-        if channel_id not in created_channels:
-            return await interaction.response.send_message('Канал не найден!',
-                                                           ephemeral=True)
+            if channel_id not in created_channels:
+                return await interaction.response.send_message('Канал не найден!',
+                                                               ephemeral=True)
 
-        channel_data = created_channels[channel_id]
+            channel_data = created_channels[channel_id]
 
-        if interaction.user.id != channel_data['owner']:
-            return await interaction.response.send_message(
-                'Только владелец канала может управлять им!', ephemeral=True)
+            if interaction.user.id != channel_data['owner']:
+                return await interaction.response.send_message(
+                    'Только владелец канала может управлять им!', ephemeral=True)
 
-        # Создаем модальное окно для ввода лимита
-        modal = LimitModal(self.view.channel_id)
-        await interaction.response.send_modal(modal)
+            # Создаем модальное окно для ввода лимита
+            modal = LimitModal(self.view.channel_id)
+            await interaction.response.send_modal(modal)
+        except Exception as e:
+            print(f"Ошибка при обработке кнопки лимита: {e}")
+            try:
+                await interaction.response.send_message(
+                    'Произошла ошибка при обработке кнопки. Попробуйте позже.',
+                    ephemeral=True)
+            except:
+                # Если первый ответ уже был отправлен, используем followup
+                await interaction.followup.send(
+                    'Произошла ошибка при обработке кнопки. Попробуйте позже.',
+                    ephemeral=True)
 
 
 class DeleteButton(discord.ui.Button):
@@ -495,5 +507,3 @@ async def on_ready():
 keep_alive.keep_alive()
 bot.run(os.environ["Token"])
 
-# Закомментировано, так как, похоже, это дублирование запуска с неверным токеном
-# bot.run(os.getenv('1359162482215616742'))
