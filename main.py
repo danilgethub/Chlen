@@ -1,35 +1,35 @@
-# Основной файл для запуска бота
+
 import os
 import discord
 import keep_alive
 import re
 from discord.ext import commands
 
-# Настройка интентов (разрешений) для бота
+
 intents = discord.Intents.default()
 intents.message_content = True
 intents.voice_states = True
 intents.members = True
 intents.presences = True
 
-# Создаем бота
+
 bot = commands.Bot(command_prefix='!', intents=intents)
 
-# Хранилище созданных каналов
+
 created_channels = {}
 
 # ID канала, в котором нужно удалять ссылки
-LINKS_FILTER_CHANNEL_ID = '1359084925218979900'  # Замените на ID вашего канала
+LINKS_FILTER_CHANNEL_ID = '1359604943228633399'  
 
-# Регулярные выражения для обнаружения ссылок
+
 URL_PATTERN = re.compile(r'https?://\S+|www\.\S+')
 DISCORD_INVITE_PATTERN = re.compile(r'discord(?:\.gg|app\.com/invite|\.com/invite)/\S+')
 
 @bot.event
 async def on_message(message):
-    # Проверяем, что сообщение не от бота и в нужном канале
+    
     if message.author.bot or str(message.channel.id) != LINKS_FILTER_CHANNEL_ID:
-        # Продолжаем обработку команд
+        
         await bot.process_commands(message)
         return
         
@@ -38,15 +38,14 @@ async def on_message(message):
     has_discord_invite = DISCORD_INVITE_PATTERN.search(message.content)
     
     if has_url or has_discord_invite:
-        # Удаляем сообщение
+        
         await message.delete()
-        # Отправляем уведомление пользователю
         await message.channel.send(
             f"{message.author.mention}, размещение ссылок в этом канале запрещено!",
-            delete_after=5  # Удаляем уведомление через 5 секунд
+            delete_after=5  
         )
     else:
-        # Если в сообщении нет ссылок, продолжаем обработку команд
+        
         await bot.process_commands(message)
 
 @bot.event
@@ -65,14 +64,14 @@ async def on_ready():
 @bot.event
 async def on_voice_state_update(member, before, after):
     """Событие срабатывает при изменении голосового состояния пользователя"""
-    # ID канала-триггера для создания приватных каналов
-    TRIGGER_CHANNEL_ID = '1359162482215616742'  # Замените на ID голосового канала
+   
+    TRIGGER_CHANNEL_ID = '1359605706289844445'  
 
     # Если пользователь зашел в канал-триггер
     if after.channel and str(after.channel.id) == TRIGGER_CHANNEL_ID:
         guild = member.guild
 
-        # Создаем новый канал
+        
         channel = await guild.create_voice_channel(
             name=f'🔊 {member.display_name}\'s канал',
             category=after.channel.category,
@@ -89,33 +88,33 @@ async def on_voice_state_update(member, before, after):
                                             manage_channels=True)
             })
 
-        # Перемещаем пользователя в новый канал
+        
         await member.move_to(channel)
 
-        # Сохраняем информацию о канале
+        
         created_channels[channel.id] = {'owner': member.id, 'channel': channel}
 
-        # Создаем View с кнопками и выпадающими меню
+        
         view = PrivateChannelView(channel.id)
 
-        # Отправляем сообщение с кнопками и выпадающими списками
+        
         message = await channel.send('Управление каналом:', view=view)
 
-        # Сохраняем ID сообщения
+        
         created_channels[channel.id]['message_id'] = message.id
 
-    # Если пользователь покинул канал
+    
     if before.channel and before.channel.id in created_channels:
         channel_data = created_channels[before.channel.id]
         channel = channel_data['channel']
 
-        # Если канал пустой, удаляем его
+       
         if len(channel.members) == 0:
             await channel.delete()
             del created_channels[before.channel.id]
 
 
-# Классы View для интерактивных компонентов
+
 class PrivateChannelView(discord.ui.View):
 
     def __init__(self, channel_id):
@@ -131,7 +130,7 @@ class PrivateChannelView(discord.ui.View):
         self.add_item(MemberActionSelect())
 
 
-# Кнопки управления
+
 class LockChannelButton(discord.ui.Button):
 
     def __init__(self):
