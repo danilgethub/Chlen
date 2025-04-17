@@ -5,6 +5,13 @@ import re
 import datetime
 import json
 from discord.ext import commands
+try:
+    from config import BOT_TOKEN
+except ImportError:
+    print("ОШИБКА: Файл config.py не найден или не содержит BOT_TOKEN!")
+    print("Создайте файл config.py с содержимым:")
+    print('BOT_TOKEN = "ваш_токен_бота"')
+    BOT_TOKEN = None
 
 
 intents = discord.Intents.default()
@@ -880,9 +887,16 @@ class RejectReasonModal(discord.ui.Modal, title="Причина отказа"):
 
 keep_alive.keep_alive()
 
-# Вставь сюда токен своего бота
-TOKEN = "MTM1OTE1MzEyMjI3ODI0ODY0NA.G427QO.c59HjqlU1hoIxtrm2jLwNNGvx48pJqolejIwd4"  # Замени это на новый токен, полученный с Discord Developer Portal
-bot.run(TOKEN)
+# Проверяем наличие токена перед запуском бота
+if BOT_TOKEN is None:
+    print("ОШИБКА: Токен бота не указан. Запуск невозможен.")
+    print("Укажите токен в файле config.py")
+    import sys
+    sys.exit(1)
+else:
+    # Запускаем бота
+    print("Запуск бота...")
+    bot.run(BOT_TOKEN)
 
 # Закомментировано, так как, похоже, это дублирование запуска с неверным токеном
 # bot.run(os.getenv('1359162482215616742'))
