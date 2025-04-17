@@ -2,16 +2,7 @@ import os
 import discord
 import keep_alive
 import re
-import datetime
-import json
 from discord.ext import commands
-try:
-    from config import BOT_TOKEN
-except ImportError:
-    print("ОШИБКА: Файл config.py не найден или не содержит BOT_TOKEN!")
-    print("Создайте файл config.py с содержимым:")
-    print('BOT_TOKEN = "ваш_токен_бота"')
-    BOT_TOKEN = None
 
 
 intents = discord.Intents.default()
@@ -29,44 +20,6 @@ created_channels = {}
 # ID канала, в котором нужно удалять ссылки
 LINKS_FILTER_CHANNEL_ID = '1359604943228633399'  
 
-# ID каналов для системы тикетов
-TICKET_CHANNEL_ID = None  # ID канала для создания тикетов
-TICKET_LOGS_CHANNEL_ID = None  # ID канала для обработки тикетов админами
-TICKET_ROLE_ID = None  # ID роли, которая выдается при принятии тикета
-
-# Сохраняем отправленные тикеты
-active_tickets = {}
-
-# Функция для сохранения настроек тикетов
-def save_ticket_config():
-    config = {
-        "ticket_channel": TICKET_CHANNEL_ID,
-        "logs_channel": TICKET_LOGS_CHANNEL_ID,
-        "role_id": TICKET_ROLE_ID
-    }
-    
-    try:
-        with open("ticket_config.json", "w") as f:
-            json.dump(config, f)
-    except Exception as e:
-        print(f"Ошибка при сохранении конфигурации тикетов: {e}")
-
-# Функция для загрузки настроек тикетов
-def load_ticket_config():
-    global TICKET_CHANNEL_ID, TICKET_LOGS_CHANNEL_ID, TICKET_ROLE_ID
-    
-    try:
-        if os.path.exists("ticket_config.json"):
-            with open("ticket_config.json", "r") as f:
-                config = json.load(f)
-                
-                TICKET_CHANNEL_ID = config.get("ticket_channel")
-                TICKET_LOGS_CHANNEL_ID = config.get("logs_channel")
-                TICKET_ROLE_ID = config.get("role_id")
-                
-                print(f"Загружена конфигурация тикетов: канал заявок: {TICKET_CHANNEL_ID}, канал логов: {TICKET_LOGS_CHANNEL_ID}, роль: {TICKET_ROLE_ID}")
-    except Exception as e:
-        print(f"Ошибка при загрузке конфигурации тикетов: {e}")
 
 URL_PATTERN = re.compile(r'https?://\S+|www\.\S+')
 DISCORD_INVITE_PATTERN = re.compile(r'discord(?:\.gg|app\.com/invite|\.com/invite)/\S+')
@@ -99,16 +52,6 @@ async def on_ready():
     """Событие срабатывает при успешном запуске бота"""
     print(f'Бот {bot.user} успешно запущен!')
 
-    # Загружаем конфигурацию тикетов
-    load_ticket_config()
-
-    # Регистрируем постоянные представления для работы с кнопками
-    bot.add_view(TicketButtonView())
-    
-    # Для каждого активного тикета регистрируем представления
-    for user_id, ticket_data in active_tickets.items():
-        bot.add_view(TicketActionView(user_id))
-    
     # Синхронизируем команды с Discord
     try:
         synced = await bot.tree.sync()
@@ -547,356 +490,22 @@ class LimitModal(discord.ui.Modal, title='Установить лимит уча
                 ephemeral=True)
 
 
-# Команды для настройки системы тикетов
-@bot.tree.command(name="setup_ticket", description="Настроить систему тикетов (только для администраторов)")
-async def setup_ticket(interaction: discord.Interaction, ticket_channel: discord.TextChannel, logs_channel: discord.TextChannel, role: discord.Role):
-    """Настраивает систему тикетов"""
-    # Проверяем права администратора
-    if not interaction.user.guild_permissions.administrator:
-        return await interaction.response.send_message("У вас нет прав на использование этой команды!", ephemeral=True)
-    
-    global TICKET_CHANNEL_ID, TICKET_LOGS_CHANNEL_ID, TICKET_ROLE_ID
-    
-    TICKET_CHANNEL_ID = str(ticket_channel.id)
-    TICKET_LOGS_CHANNEL_ID = str(logs_channel.id)
-    TICKET_ROLE_ID = str(role.id)
-    
-    # Сохраняем конфигурацию
-    save_ticket_config()
-    
-    await interaction.response.send_message(f"Система тикетов настроена!\nКанал для заявок: {ticket_channel.mention}\nКанал для обработки: {logs_channel.mention}\nРоль при принятии: {role.mention}", ephemeral=True)
+# Запускаем веб-сервер для поддержания работы бота
+@bot.event
+async def on_ready():
+    """Событие срабатывает при успешном запуске бота"""
+    print(f'Бот {bot.user} успешно запущен!')
 
-
-@bot.tree.command(name="send_ticket_button", description="Отправить сообщение с кнопкой подачи заявки (только для администраторов)")
-async def send_ticket_button(interaction: discord.Interaction, channel: discord.TextChannel = None):
-    """Отправляет сообщение с кнопкой для создания тикета"""
-    # Проверяем права администратора
-    if not interaction.user.guild_permissions.administrator:
-        return await interaction.response.send_message("У вас нет прав на использование этой команды!", ephemeral=True)
-    
-    global TICKET_CHANNEL_ID
-    
-    # Если канал не указан, используем текущий
-    if not channel:
-        channel = interaction.channel
-    
-    # Обновляем TICKET_CHANNEL_ID
-    TICKET_CHANNEL_ID = str(channel.id)
-    
-    # Сохраняем обновленную конфигурацию
-    save_ticket_config()
-    
-    # Создаем кнопку для создания тикета
-    view = TicketButtonView()
-    
-    # Отправляем сообщение с кнопкой в канал для тикетов
-    embed = discord.Embed(
-        title="📝 Подать заявку на сервер",
-        description="Нажмите на кнопку ниже, чтобы подать заявку на присоединение к серверу.",
-        color=discord.Color.blue()
-    )
-    
-    await channel.send(embed=embed, view=view)
-    
-    await interaction.response.send_message(f"Сообщение с кнопкой для подачи заявки отправлено в канал {channel.mention}!", ephemeral=True)
-
-
-# Кнопка для создания тикета
-class TicketButtonView(discord.ui.View):
-    def __init__(self):
-        super().__init__(timeout=None)
-        
-    @discord.ui.button(label="Подать заявку", style=discord.ButtonStyle.primary, custom_id="create_ticket")
-    async def create_ticket(self, interaction: discord.Interaction, button: discord.ui.Button):
-        # Открываем модальное окно для заполнения заявки
-        await interaction.response.send_modal(TicketModal())
-
-
-# Модальное окно для заполнения заявки
-class TicketModal(discord.ui.Modal, title="Заявка на сервер"):
-    username = discord.ui.TextInput(
-        label="Ник",
-        placeholder="Введите ваш игровой ник",
-        required=True
-    )
-    
-    age = discord.ui.TextInput(
-        label="Возраст",
-        placeholder="Укажите ваш возраст",
-        required=True
-    )
-    
-    experience = discord.ui.TextInput(
-        label="Опыт игры",
-        placeholder="Играли вы на подобных серверах или нет?",
-        style=discord.TextStyle.paragraph,
-        required=True
-    )
-    
-    adequacy = discord.ui.TextInput(
-        label="Адекватность",
-        placeholder="Оцените свою адекватность от 1 до 10",
-        required=True
-    )
-    
-    plans = discord.ui.TextInput(
-        label="Планы на сервере",
-        placeholder="Чем планируете заниматься на нашем сервере?",
-        style=discord.TextStyle.paragraph,
-        required=True
-    )
-    
-    async def on_submit(self, interaction: discord.Interaction):
-        global active_tickets, TICKET_LOGS_CHANNEL_ID
-        
-        if not TICKET_LOGS_CHANNEL_ID:
-            return await interaction.response.send_message("Система тикетов не настроена. Обратитесь к администрации.", ephemeral=True)
-        
-        # Получаем канал для логов
-        logs_channel = interaction.guild.get_channel(int(TICKET_LOGS_CHANNEL_ID))
-        if not logs_channel:
-            return await interaction.response.send_message("Ошибка конфигурации системы тикетов. Обратитесь к администрации.", ephemeral=True)
-        
-        # Создаем эмбед с информацией о заявке
-        embed = discord.Embed(
-            title=f"📝 Заявка от {interaction.user.display_name}",
-            description=f"**Время подачи:** {datetime.datetime.now().strftime('%d.%m.%Y %H:%M')}",
-            color=discord.Color.gold()
-        )
-        
-        embed.add_field(name="Ник", value=self.username.value, inline=True)
-        embed.add_field(name="Возраст", value=self.age.value, inline=True)
-        embed.add_field(name="Адекватность", value=self.adequacy.value, inline=True)
-        embed.add_field(name="Опыт игры", value=self.experience.value, inline=False)
-        embed.add_field(name="Планы на сервере", value=self.plans.value, inline=False)
-        
-        # Спрашиваем дополнительные вопросы
-        await interaction.response.send_message("Заполните дополнительную информацию:", view=AdditionalQuestionsView(), ephemeral=True)
-        
-        # Сохраняем данные первой части заявки
-        active_tickets[interaction.user.id] = {
-            "user": interaction.user,
-            "embed": embed,
-            "ticket_data": {
-                "username": self.username.value,
-                "age": self.age.value,
-                "experience": self.experience.value,
-                "adequacy": self.adequacy.value,
-                "plans": self.plans.value
-            }
-        }
-
-
-# Вторая часть вопросов
-class AdditionalQuestionsView(discord.ui.View):
-    def __init__(self):
-        super().__init__(timeout=300)  # Таймаут 5 минут
-    
-    @discord.ui.button(label="Продолжить", style=discord.ButtonStyle.primary)
-    async def continue_button(self, interaction: discord.Interaction, button: discord.ui.Button):
-        await interaction.response.send_modal(AdditionalQuestionsModal())
-
-
-class AdditionalQuestionsModal(discord.ui.Modal, title="Дополнительная информация"):
-    grief = discord.ui.TextInput(
-        label="Отношение к грифу",
-        placeholder="Как вы относитесь к грифу?",
-        style=discord.TextStyle.paragraph,
-        required=True
-    )
-    
-    source = discord.ui.TextInput(
-        label="Источник",
-        placeholder="Откуда узнали о сервере?",
-        style=discord.TextStyle.paragraph,
-        required=True
-    )
-    
-    async def on_submit(self, interaction: discord.Interaction):
-        global active_tickets, TICKET_LOGS_CHANNEL_ID
-        
-        if interaction.user.id not in active_tickets:
-            return await interaction.response.send_message("Ваша заявка устарела. Пожалуйста, отправьте заявку заново.", ephemeral=True)
-        
-        # Получаем данные заявки
-        ticket_data = active_tickets[interaction.user.id]
-        embed = ticket_data["embed"]
-        
-        # Добавляем дополнительные поля
-        embed.add_field(name="Отношение к грифу", value=self.grief.value, inline=False)
-        embed.add_field(name="Откуда узнали о сервере", value=self.source.value, inline=False)
-        
-        # Добавляем информацию о пользователе
-        embed.set_thumbnail(url=interaction.user.display_avatar.url)
-        embed.set_footer(text=f"ID пользователя: {interaction.user.id}")
-        
-        # Получаем канал для логов
-        logs_channel = interaction.guild.get_channel(int(TICKET_LOGS_CHANNEL_ID))
-        
-        # Создаем кнопки для принятия/отклонения заявки
-        view = TicketActionView(interaction.user.id)
-        
-        # Отправляем заявку в канал для логов
-        ticket_message = await logs_channel.send(embed=embed, view=view)
-        
-        # Сохраняем ID сообщения для дальнейшего управления
-        active_tickets[interaction.user.id]["message_id"] = ticket_message.id
-        
-        await interaction.response.send_message("Ваша заявка успешно отправлена! Ожидайте решения администрации.", ephemeral=True)
-
-
-# Кнопки для принятия/отклонения заявки
-class TicketActionView(discord.ui.View):
-    def __init__(self, user_id):
-        super().__init__(timeout=None)
-        self.user_id = user_id
-        
-        # Добавляем кнопки с уникальными ID
-        accept_button = discord.ui.Button(
-            label="Принять", 
-            style=discord.ButtonStyle.success, 
-            custom_id=f"accept_ticket_{user_id}"
-        )
-        accept_button.callback = self.accept_ticket
-        self.add_item(accept_button)
-        
-        reject_button = discord.ui.Button(
-            label="Отклонить", 
-            style=discord.ButtonStyle.danger, 
-            custom_id=f"reject_ticket_{user_id}"
-        )
-        reject_button.callback = self.reject_ticket
-        self.add_item(reject_button)
-    
-    async def accept_ticket(self, interaction: discord.Interaction):
-        # Проверяем права администратора
-        if not interaction.user.guild_permissions.administrator:
-            return await interaction.response.send_message("У вас нет прав на использование этой команды!", ephemeral=True)
-        
-        global active_tickets, TICKET_ROLE_ID
-        
-        if self.user_id not in active_tickets:
-            return await interaction.response.send_message("Заявка устарела или уже обработана.", ephemeral=True)
-        
-        # Получаем пользователя
-        user = active_tickets[self.user_id]["user"]
-        member = interaction.guild.get_member(user.id)
-        
-        if not member:
-            return await interaction.response.send_message("Пользователь покинул сервер.", ephemeral=True)
-        
-        # Выдаем роль, если она настроена
-        if TICKET_ROLE_ID:
-            try:
-                role = interaction.guild.get_role(int(TICKET_ROLE_ID))
-                if role:
-                    await member.add_roles(role)
-            except:
-                await interaction.response.send_message("Не удалось выдать роль пользователю.", ephemeral=True)
-                return
-        
-        # Обновляем сообщение
-        embed = active_tickets[self.user_id]["embed"]
-        embed.color = discord.Color.green()
-        embed.title = f"✅ Заявка от {user.display_name} (ПРИНЯТА)"
-        embed.add_field(name="Принята администратором", value=f"{interaction.user.mention} ({interaction.user.display_name})", inline=False)
-        
-        # Отключаем кнопки
-        for child in self.children:
-            child.disabled = True
-        
-        await interaction.message.edit(embed=embed, view=self)
-        
-        # Уведомляем пользователя о принятии заявки
-        try:
-            dm_embed = discord.Embed(
-                title="✅ Ваша заявка принята!",
-                description="Поздравляем! Ваша заявка на сервер была принята администрацией.",
-                color=discord.Color.green()
-            )
-            await user.send(embed=dm_embed)
-        except:
-            pass
-        
-        await interaction.response.send_message(f"Заявка пользователя {user.mention} принята!", ephemeral=True)
-        
-        # Удаляем заявку из активных
-        del active_tickets[self.user_id]
-    
-    async def reject_ticket(self, interaction: discord.Interaction):
-        # Проверяем права администратора
-        if not interaction.user.guild_permissions.administrator:
-            return await interaction.response.send_message("У вас нет прав на использование этой команды!", ephemeral=True)
-        
-        # Открываем модальное окно для указания причины отказа
-        await interaction.response.send_modal(RejectReasonModal(self.user_id))
-
-
-# Модальное окно для указания причины отказа
-class RejectReasonModal(discord.ui.Modal, title="Причина отказа"):
-    def __init__(self, user_id):
-        super().__init__()
-        self.user_id = user_id
-    
-    reason = discord.ui.TextInput(
-        label="Причина",
-        placeholder="Укажите причину отказа",
-        style=discord.TextStyle.paragraph,
-        required=True
-    )
-    
-    async def on_submit(self, interaction: discord.Interaction):
-        global active_tickets
-        
-        if self.user_id not in active_tickets:
-            return await interaction.response.send_message("Заявка устарела или уже обработана.", ephemeral=True)
-        
-        # Получаем пользователя
-        user = active_tickets[self.user_id]["user"]
-        
-        # Обновляем сообщение
-        embed = active_tickets[self.user_id]["embed"]
-        embed.color = discord.Color.red()
-        embed.title = f"❌ Заявка от {user.display_name} (ОТКЛОНЕНА)"
-        embed.add_field(name="Отклонена администратором", value=f"{interaction.user.mention} ({interaction.user.display_name})", inline=False)
-        embed.add_field(name="Причина", value=self.reason.value, inline=False)
-        
-        # Отключаем кнопки
-        view = TicketActionView(self.user_id)
-        for child in view.children:
-            child.disabled = True
-        
-        await interaction.message.edit(embed=embed, view=view)
-        
-        # Уведомляем пользователя об отказе
-        try:
-            dm_embed = discord.Embed(
-                title="❌ Ваша заявка отклонена",
-                description=f"К сожалению, ваша заявка на сервер была отклонена администрацией.\n\n**Причина:** {self.reason.value}",
-                color=discord.Color.red()
-            )
-            await user.send(embed=dm_embed)
-        except:
-            pass
-        
-        await interaction.response.send_message(f"Заявка пользователя {user.mention} отклонена!", ephemeral=True)
-        
-        # Удаляем заявку из активных
-        del active_tickets[self.user_id]
+    # Синхронизируем команды с Discord
+    try:
+        synced = await bot.tree.sync()
+        print(f'Синхронизировано {len(synced)} команд')
+    except Exception as e:
+        print(f'Ошибка синхронизации команд: {e}')
 
 
 keep_alive.keep_alive()
-
-# Проверяем наличие токена перед запуском бота
-if BOT_TOKEN is None:
-    print("ОШИБКА: Токен бота не указан. Запуск невозможен.")
-    print("Укажите токен в файле config.py")
-    import sys
-    sys.exit(1)
-else:
-    # Запускаем бота
-    print("Запуск бота...")
-    bot.run(BOT_TOKEN)
+bot.run(os.environ["Token"])
 
 # Закомментировано, так как, похоже, это дублирование запуска с неверным токеном
 # bot.run(os.getenv('1359162482215616742'))
