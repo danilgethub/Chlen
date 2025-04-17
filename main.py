@@ -491,21 +491,5 @@ class LimitModal(discord.ui.Modal, title='Установить лимит уча
 
 
 # Запускаем веб-сервер для поддержания работы бота
-@bot.event
-async def on_ready():
-    """Событие срабатывает при успешном запуске бота"""
-    print(f'Бот {bot.user} успешно запущен!')
-
-    # Синхронизируем команды с Discord
-    try:
-        synced = await bot.tree.sync()
-        print(f'Синхронизировано {len(synced)} команд')
-    except Exception as e:
-        print(f'Ошибка синхронизации команд: {e}')
-
-
 keep_alive.keep_alive()
 bot.run(os.environ["Token"])
-
-# Закомментировано, так как, похоже, это дублирование запуска с неверным токеном
-# bot.run(os.getenv('1359162482215616742'))
