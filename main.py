@@ -906,4 +906,5 @@ async def tickets_history(interaction: discord.Interaction, status: str = None):
     await interaction.response.send_message(embed=embed, ephemeral=True)
 
 keep_alive.keep_alive()
-bot.run(os.environ["Token"])
+# Используем токен напрямую
+bot.run("MTM1OTE1MzEyMjI3ODI0ODY0NA.GiMsry.Zt9_Rw7qQ8W0PvwXuNoizRiiNR0duJhS3Be8Yw")
