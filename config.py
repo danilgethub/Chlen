@@ -2,4 +2,4 @@
 # Не публикуйте этот файл в публичных репозиториях
 
 # Токен вашего бота
-BOT_TOKEN = "ВСТАВЬ_СВОЙ_ТОКЕН_СЮДА" 
+BOT_TOKEN = "MTM1OTE1MzEyMjI3ODI0ODY0NA.G427QO.c59HjqlU1hoIxtrm2jLwNNGvx48pJqolejIwd4" 
