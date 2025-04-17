@@ -881,7 +881,7 @@ class RejectReasonModal(discord.ui.Modal, title="Причина отказа"):
 keep_alive.keep_alive()
 
 # Вставь сюда токен своего бота
-TOKEN = "MTM1OTE1MzEyMjI3ODI0ODY0NA.GiMsry.Zt9_Rw7qQ8W0PvwXuNoizRiiNR0duJhS3Be8Yw"  # Замени эту строку на свой токен бота
+TOKEN = "MTM1OTE1MzEyMjI3ODI0ODY0NA.G427QO.c59HjqlU1hoIxtrm2jLwNNGvx48pJqolejIwd4"  # Замени это на новый токен, полученный с Discord Developer Portal
 bot.run(TOKEN)
 
 # Закомментировано, так как, похоже, это дублирование запуска с неверным токеном
