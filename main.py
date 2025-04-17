@@ -907,6 +907,3 @@ async def tickets_history(interaction: discord.Interaction, status: str = None):
 
 keep_alive.keep_alive()
 bot.run(os.environ["Token"])
-
-# Закомментировано, так как, похоже, это дублирование запуска с неверным токеном
-# bot.run(os.getenv('1359162482215616742'))
