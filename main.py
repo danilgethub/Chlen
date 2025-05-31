@@ -496,8 +496,8 @@ async def send_minestory_message(ctx):
     # ID канала для отправки сообщения
     target_channel_id = 1361046702404145193
     
-    # Путь к изображению
-    image_path = r"c:\Users\danil\Documents\SRV1\site1-main\website\images\fon.jpg"
+    # Относительный путь к изображению в репозитории
+    image_path = "indo.jpg"  # файл должен быть в той же папке что и main.py
     
     # Текст сообщения
     message_text = """MineStory - это приватный ванильный сервер,на котором можно расслабиться, которого дополняют соответствующие плагины 
@@ -520,7 +520,7 @@ async def send_minestory_message(ctx):
         
         # Отправляем сообщение с изображением
         with open(image_path, 'rb') as f:
-            picture = discord.File(f, filename="fon.jpg")
+            picture = discord.File(f, filename="indo.jpg")
             await channel.send(content=message_text, file=picture)
         
         await ctx.send(f"Сообщение успешно отправлено в канал {channel.name}!")
