@@ -490,6 +490,45 @@ class LimitModal(discord.ui.Modal, title='Установить лимит уча
                 ephemeral=True)
 
 
+@bot.command(name='send_minestory')
+async def send_minestory_message(ctx):
+    """Отправляет сообщение о сервере MineStory в указанный канал"""
+    # ID канала для отправки сообщения
+    target_channel_id = 1361046702404145193
+    
+    # Путь к изображению
+    image_path = r"c:\Users\danil\Documents\SRV1\site1-main\website\images\fon.jpg"
+    
+    # Текст сообщения
+    message_text = """MineStory - это приватный ванильный сервер,на котором можно расслабиться, которого дополняют соответствующие плагины 
+
+🎮 | Сервер на версии 1.21+ 
+
+📑 | Перед началом игры ознакомтесь с https://discord.com/channels/1359594682920734731/1359610554171265145"""
+    
+    try:
+        # Получаем канал по ID
+        channel = bot.get_channel(target_channel_id)
+        if not channel:
+            await ctx.send(f"Канал с ID {target_channel_id} не найден!")
+            return
+        
+        # Проверяем существование файла
+        if not os.path.exists(image_path):
+            await ctx.send(f"Изображение не найдено по пути: {image_path}")
+            return
+        
+        # Отправляем сообщение с изображением
+        with open(image_path, 'rb') as f:
+            picture = discord.File(f, filename="fon.jpg")
+            await channel.send(content=message_text, file=picture)
+        
+        await ctx.send(f"Сообщение успешно отправлено в канал {channel.name}!")
+        
+    except Exception as e:
+        await ctx.send(f"Произошла ошибка при отправке сообщения: {e}")
+        print(f"Ошибка отправки сообщения: {e}")
+
 # Запускаем веб-сервер для поддержания работы бота
 keep_alive.keep_alive()
 bot.run(os.environ["Token"])
